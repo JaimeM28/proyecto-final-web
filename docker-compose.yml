@@ -1,5 +1,4 @@
 services:
-  # Contenedor de Base de Datos
   postgres_db:
     image: postgres:15-alpine
     container_name: nestjs_db
@@ -13,19 +12,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Contenedor de la API NestJS
   api:
     build:
-      context: ./backend # <--- Apunta a la carpeta backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: nestjs_api
     restart: always
     ports:
       - "${PORT}:${PORT}"
     environment:
-      # Estas son las que leerá tu TypeOrmModule.forRootAsync
-      DB_HOST: postgres_db
-      DB_PORT: 5432
+      PORT: ${PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
