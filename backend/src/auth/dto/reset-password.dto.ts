@@ -1,0 +1,13 @@
+// auth/dto/reset-password.dto.ts
+import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+
+export class ResetPasswordDto {
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty()
+  code: string;
+
+  @MinLength(8)
+  newPassword: string;
+}
