@@ -34,6 +34,7 @@ services:
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
+    command: yarn start:dev
 
 volumes:
   postgres_data:

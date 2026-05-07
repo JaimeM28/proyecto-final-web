@@ -144,7 +144,7 @@ export class AuthService {
     await this.usersRepository.save(user);
 
     return {
-      message: 'Contraseña actualizada correctamente',
+      message: 'Contraseña actualizada correctamentee',
     };
   }
 }
