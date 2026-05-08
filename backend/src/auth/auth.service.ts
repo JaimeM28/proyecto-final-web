@@ -33,18 +33,12 @@ export class AuthService {
       throw new BadRequestException('El correo ya está registrado');
     }
 
-    if (dto.role === UserRole.PROVIDER && !dto.trade) {
-      throw new BadRequestException('El oficio es obligatorio para proveedores');
-    }
-
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const user: User = this.usersRepository.create({
       name: dto.name,
       email: dto.email,
       password: hashedPassword,
-      location: dto.location,
-      trade: dto.role === UserRole.PROVIDER ? dto.trade! : null,
       role: dto.role,
   });
     await this.usersRepository.save(user);
@@ -56,43 +50,43 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
-        trade: user.trade,
-        location: user.location,
       },
     };
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersRepository.findOne({
-      where: { email: dto.email },
-    });
+  const user = await this.usersRepository.findOne({
+    where: { email: dto.email },
+  });
 
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
+  if (!user) {
+    throw new UnauthorizedException('Credenciales inválidas');
+  }
 
-    const passwordIsValid = await bcrypt.compare(dto.password, user.password);
+  const passwordIsValid = await bcrypt.compare(dto.password, user.password);
 
-    if (!passwordIsValid) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
+  if (!passwordIsValid) {
+    throw new UnauthorizedException('Credenciales inválidas');
+  }
 
-    const token = await this.jwtService.signAsync({
-      sub: user.id,
+  const token = await this.jwtService.signAsync({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    isOnboardingCompleted: user.isOnboardingCompleted,
+  });
+
+  return {
+    accessToken: token,
+    user: {
+      id: user.id,
+      name: user.name,
       email: user.email,
       role: user.role,
-    });
-
-    return {
-      accessToken: token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
-  }
+      isOnboardingCompleted: user.isOnboardingCompleted,
+    },
+  };
+}
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.usersRepository.findOne({
