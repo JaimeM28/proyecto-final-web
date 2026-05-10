@@ -68,4 +68,10 @@ export class User {
      nullable: true
     })
   emailVerificationCodeExpiresAt: Date | null;
+
+  @Column({  
+    type: 'varchar', 
+    nullable: true
+ })
+  refreshToken: string | null;
 }

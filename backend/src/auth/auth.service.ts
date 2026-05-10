@@ -17,7 +17,7 @@ import { UserRole } from '../users/enums/user-role.enum';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { QueuesService } from '../queues/queues.service';
 import { randomInt } from 'crypto';
-import { Throttle } from '@nestjs/throttler'; 
+import type { SignOptions } from 'jsonwebtoken';
 @Injectable()
 export class AuthService {
   constructor(
@@ -86,47 +86,77 @@ export class AuthService {
     );
 }
 
-  const token = await this.jwtService.signAsync({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    isOnboardingCompleted: user.isOnboardingCompleted,
-  });
+  const tokens = await this.generateTokens(user);
+
+  const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
+
+  user.refreshToken = hashedRefreshToken;
+  await this.usersRepository.save(user);
 
   return {
-    accessToken: token,
+    ...tokens,
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      isEmailVerified: user.isEmailVerified,
       isOnboardingCompleted: user.isOnboardingCompleted,
     },
   };
 }
 
   async forgotPassword(dto: ForgotPasswordDto) {
+    const defaultResponse = {
+      message:
+        'Si el correo existe, se enviará un código de recuperación',
+      expiresInSeconds: 60,
+    };
+
     const user = await this.usersRepository.findOne({
       where: { email: dto.email },
     });
 
     if (!user) {
+      return defaultResponse;
+    }
+
+    const now = Date.now();
+
+    const hasValidCode =
+      user.resetCode &&
+      user.resetCodeExpiresAt &&
+      user.resetCodeExpiresAt.getTime() > now;
+
+    if (hasValidCode) {
+      const remainingSeconds = Math.ceil(
+        (user.resetCodeExpiresAt!.getTime() - now) / 1000,
+      );
+
       return {
-        message: 'Si el correo existe, se enviará un código de recuperación',
+        ...defaultResponse,
+        expiresInSeconds: remainingSeconds,
       };
     }
 
     const code = randomInt(100000, 1000000).toString();
 
     user.resetCode = code;
-    user.resetCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    user.resetCodeExpiresAt = new Date(
+      now + 1 * 60 * 1000,
+    );
 
     await this.usersRepository.save(user);
 
-    await this.queuesService.addPasswordResetJob(user.email, code);
+    await this.queuesService.addPasswordResetJob(
+      user.email,
+      code,
+    );
 
     return {
-      message: 'Si el correo existe, se enviará un código de recuperación',
+      ...defaultResponse,
+      expiresInSeconds: 60,
     };
   }
 
@@ -195,4 +225,89 @@ export class AuthService {
     message: 'Correo verificado correctamente',
   };
 }
+
+private async generateTokens(user: User) {
+  const payload = {
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    isOnboardingCompleted: user.isOnboardingCompleted,
+    isEmailVerified: user.isEmailVerified,
+  };
+
+  const accessExpiresIn =
+    (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as SignOptions['expiresIn'];
+
+  const refreshExpiresIn =
+    (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
+
+  const [accessToken, refreshToken] = await Promise.all([
+    this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: accessExpiresIn,
+    }),
+    this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: refreshExpiresIn,
+    }),
+  ]);
+
+  return {
+    accessToken,
+    refreshToken,
+  };
+}
+
+  async refresh(refreshToken: string) {
+    let payload: any;
+
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: payload.sub },
+    });
+
+    if (!user || !user.refreshToken) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const isRefreshTokenValid = await bcrypt.compare(
+      refreshToken,
+      user.refreshToken,
+    );
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const tokens = await this.generateTokens(user);
+
+    user.refreshToken = await bcrypt.hash(tokens.refreshToken, 10);
+    await this.usersRepository.save(user);
+
+    return tokens;
+  }
+
+  async logout(userId: string) {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    user.refreshToken = null;
+    await this.usersRepository.save(user);
+
+    return {
+      message: 'Sesión cerrada correctamente',
+    };
+  }
 }

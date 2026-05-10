@@ -1,6 +1,6 @@
 // src/auth/auth.controller.ts
 
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiOperation,
   ApiResponse,
@@ -15,6 +15,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { Throttle } from '@nestjs/throttler/dist/throttler.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -94,5 +96,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Verificar correo electrónico' })
   verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto);
+  }
+
+  @Post('refresh')
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refreshToken);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  logout(@Req() req) {
+    return this.authService.logout(req.user.id);
   }
 }
