@@ -1,8 +1,4 @@
-import {
-  Column,
-  Entity,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 import { UserRole } from '../enums/user-role.enum';
 
@@ -51,21 +47,27 @@ export class User {
   })
   resetCodeExpiresAt: Date | null;
 
-  @Column({ 
-    type: 'boolean', 
-    default: false
+  @Column({
+    type: 'boolean',
+    default: false,
   })
   isEmailVerified: boolean;
 
-  @Column({ 
+  @Column({
     type: 'varchar',
-    nullable: true
+    nullable: true,
   })
   emailVerificationCode: string | null;
 
   @Column({
-     type: 'timestamp',
-     nullable: true
-    })
+    type: 'timestamp',
+    nullable: true,
+  })
   emailVerificationCodeExpiresAt: Date | null;
+
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  refreshToken: string | null;
 }

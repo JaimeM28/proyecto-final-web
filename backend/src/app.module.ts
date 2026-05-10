@@ -37,9 +37,11 @@ import { ThrottlerGuard } from '@nestjs/throttler/dist/throttler.guard';
     ]),
   ],
   controllers: [],
-  providers: [{
-    provide: APP_GUARD,
-    useClass: ThrottlerGuard,
-  },],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

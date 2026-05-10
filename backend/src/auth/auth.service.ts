@@ -17,7 +17,7 @@ import { UserRole } from '../users/enums/user-role.enum';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { QueuesService } from '../queues/queues.service';
 import { randomInt } from 'crypto';
-import { Throttle } from '@nestjs/throttler'; 
+import type { SignOptions } from 'jsonwebtoken';
 @Injectable()
 export class AuthService {
   constructor(
@@ -33,7 +33,25 @@ export class AuthService {
     });
 
     if (userExists) {
-      throw new BadRequestException('El correo ya está registrado');
+      if (userExists.isEmailVerified) {
+        throw new BadRequestException('El correo ya está registrado');
+      }
+
+      const resendResponse = await this.resendVerificationEmail(dto.email);
+
+      return {
+        ...resendResponse,
+        message: 'El correo ya estaba registrado pero no verificado. Revisa tu correo para continuar.',
+        requiresEmailVerification: true,
+        user: {
+          id: userExists.id,
+          name: userExists.name,
+          email: userExists.email,
+          role: userExists.role,
+          isEmailVerified: userExists.isEmailVerified,
+          isOnboardingCompleted: userExists.isOnboardingCompleted,
+        },
+      };
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -47,20 +65,28 @@ export class AuthService {
       isOnboardingCompleted: false,
       isEmailVerified: false,
       emailVerificationCode,
-      emailVerificationCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      emailVerificationCodeExpiresAt: new Date(Date.now() + 3 * 60 * 1000),
     });
-    await this.usersRepository.save(user);
+
+    const savedUser = await this.usersRepository.save(user);
+
     await this.queuesService.addEmailVerificationJob(
-      user.email,
+      savedUser.email,
       emailVerificationCode,
-  );
+    );
+
     return {
-      message: 'Usuario registrado correctamente',
+      message: 'Usuario registrado correctamente. Revisa tu correo para verificar tu cuenta.',
+      requiresEmailVerification: true,
+      expiresInSeconds: 180,
+      codeAlreadySent: false,
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        id: savedUser.id,
+        name: savedUser.name,
+        email: savedUser.email,
+        role: savedUser.role,
+        isEmailVerified: savedUser.isEmailVerified,
+        isOnboardingCompleted: savedUser.isOnboardingCompleted,
       },
     };
   }
@@ -86,47 +112,77 @@ export class AuthService {
     );
 }
 
-  const token = await this.jwtService.signAsync({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    isOnboardingCompleted: user.isOnboardingCompleted,
-  });
+  const tokens = await this.generateTokens(user);
+
+  const hashedRefreshToken = await bcrypt.hash(tokens.refreshToken, 10);
+
+  user.refreshToken = hashedRefreshToken;
+  await this.usersRepository.save(user);
 
   return {
-    accessToken: token,
+    ...tokens,
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      isEmailVerified: user.isEmailVerified,
       isOnboardingCompleted: user.isOnboardingCompleted,
     },
   };
 }
 
   async forgotPassword(dto: ForgotPasswordDto) {
+    const defaultResponse = {
+      message:
+        'Si el correo existe, se enviará un código de recuperación',
+      expiresInSeconds: 180,
+    };
+
     const user = await this.usersRepository.findOne({
       where: { email: dto.email },
     });
 
     if (!user) {
+      return defaultResponse;
+    }
+
+    const now = Date.now();
+
+    const hasValidCode =
+      user.resetCode &&
+      user.resetCodeExpiresAt &&
+      user.resetCodeExpiresAt.getTime() > now;
+
+    if (hasValidCode) {
+      const remainingSeconds = Math.ceil(
+        (user.resetCodeExpiresAt!.getTime() - now) / 1000,
+      );
+
       return {
-        message: 'Si el correo existe, se enviará un código de recuperación',
+        ...defaultResponse,
+        expiresInSeconds: remainingSeconds,
       };
     }
 
     const code = randomInt(100000, 1000000).toString();
 
     user.resetCode = code;
-    user.resetCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    user.resetCodeExpiresAt = new Date(
+      now + 3 * 60 * 1000,
+    );
 
     await this.usersRepository.save(user);
 
-    await this.queuesService.addPasswordResetJob(user.email, code);
+    await this.queuesService.addPasswordResetJob(
+      user.email,
+      code,
+    );
 
     return {
-      message: 'Si el correo existe, se enviará un código de recuperación',
+      ...defaultResponse,
+      expiresInSeconds: 180,
     };
   }
 
@@ -157,42 +213,181 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyEmailDto) {
-  const user = await this.usersRepository.findOne({
-    where: { email: dto.email },
-  });
+    const user = await this.usersRepository.findOne({
+      where: { email: dto.email },
+    });
 
-  if (!user) {
-    throw new BadRequestException('Código inválido');
-  }
+    if (!user) {
+      throw new BadRequestException('Código inválido');
+    }
 
-  if (user.isEmailVerified) {
+    if (user.isEmailVerified) {
+      return {
+        message: 'El correo ya está verificado',
+      };
+    }
+
+    if (
+      !user.emailVerificationCode ||
+      !user.emailVerificationCodeExpiresAt
+    ) {
+      throw new BadRequestException('Código inválido');
+    }
+
+    const codeExpired =
+      user.emailVerificationCodeExpiresAt.getTime() < Date.now();
+
+    if (codeExpired || user.emailVerificationCode !== dto.code) {
+      throw new BadRequestException('Código inválido o expirado');
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationCode = null;
+    user.emailVerificationCodeExpiresAt = null;
+
+    await this.usersRepository.save(user);
+
     return {
-      message: 'El correo ya está verificado',
+      message: 'Correo verificado correctamente',
+    };
+}
+
+async resendVerificationEmail(email: string) {
+    const defaultResponse = {
+      message:
+      'Si el correo existe, se enviará un nuevo código de verificación',
+      expiresInSeconds: 180,
+    };
+
+    const user = await this.usersRepository.findOne({
+      where: {email},
+    });
+
+    if (!user || user.isEmailVerified) {
+      return defaultResponse;
+    }
+
+    const now = Date.now();
+
+    const hasValidCode =
+      user.emailVerificationCode &&
+      user.emailVerificationCodeExpiresAt &&
+      user.emailVerificationCodeExpiresAt.getTime() > now;
+
+    if (hasValidCode) {
+      const remainingSeconds = Math.ceil(
+        (user.emailVerificationCodeExpiresAt!.getTime() - now) / 1000,
+      );
+
+      return {
+        ...defaultResponse,
+        expiresInSeconds: remainingSeconds,
+      };
+    }
+
+    const code = randomInt(100000, 1000000).toString();
+
+    user.emailVerificationCode = code;
+
+    user.emailVerificationCodeExpiresAt = new Date(
+      now + 3 * 60 * 1000,
+    );
+
+    await this.usersRepository.save(user);
+
+    await this.queuesService.addEmailVerificationJob(
+      user.email,
+      code,
+    );
+
+    return {
+      ...defaultResponse,
+      expiresInSeconds: 180,
     };
   }
 
-  if (
-    !user.emailVerificationCode ||
-    !user.emailVerificationCodeExpiresAt
-  ) {
-    throw new BadRequestException('Código inválido');
+  private async generateTokens(user: User) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      isOnboardingCompleted: user.isOnboardingCompleted,
+      isEmailVerified: user.isEmailVerified,
+    };
+
+    const accessExpiresIn =
+      (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as SignOptions['expiresIn'];
+
+    const refreshExpiresIn =
+      (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: accessExpiresIn,
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: refreshExpiresIn,
+      }),
+    ]);
+
+    return {
+      accessToken,
+      refreshToken,
+    };
   }
 
-  const codeExpired =
-    user.emailVerificationCodeExpiresAt.getTime() < Date.now();
+  async refresh(refreshToken: string) {
+    let payload: any;
 
-  if (codeExpired || user.emailVerificationCode !== dto.code) {
-    throw new BadRequestException('Código inválido o expirado');
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: payload.sub },
+    });
+
+    if (!user || !user.refreshToken) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const isRefreshTokenValid = await bcrypt.compare(
+      refreshToken,
+      user.refreshToken,
+    );
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const tokens = await this.generateTokens(user);
+
+    user.refreshToken = await bcrypt.hash(tokens.refreshToken, 10);
+    await this.usersRepository.save(user);
+
+    return tokens;
   }
 
-  user.isEmailVerified = true;
-  user.emailVerificationCode = null;
-  user.emailVerificationCodeExpiresAt = null;
+  async logout(userId: string) {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
 
-  await this.usersRepository.save(user);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
 
-  return {
-    message: 'Correo verificado correctamente',
-  };
-}
+    user.refreshToken = null;
+    await this.usersRepository.save(user);
+
+    return {
+      message: 'Sesión cerrada correctamente',
+    };
+  }
 }

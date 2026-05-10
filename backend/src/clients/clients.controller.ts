@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -31,10 +25,7 @@ export class ClientsController {
     status: 201,
     description: 'Onboarding de cliente completado',
   })
-  completeOnboarding(
-    @Req() req,
-    @Body() dto: ClientOnboardingDto,
-  ) {
+  completeOnboarding(@Req() req, @Body() dto: ClientOnboardingDto) {
     return this.clientsService.completeOnboarding(req.user.id, dto);
   }
 }

@@ -13,7 +13,7 @@ export class MailService {
         <h2>Recuperación de contraseña</h2>
         <p>Tu código de recuperación es:</p>
         <h1>${code}</h1>
-        <p>Este código expirará en 15 minutos.</p>
+        <p>Este código expirará en 3 minutos.</p>
         <p>Si no solicitaste este cambio, ignora este correo.</p>
       `,
     });
@@ -21,14 +21,14 @@ export class MailService {
 
   async sendEmailVerificationCode(email: string, code: string) {
     await this.mailerService.sendMail({
-        to: email,
-        subject: 'Verifica tu correo - Tu Oficio',
-        html: `
+      to: email,
+      subject: 'Verifica tu correo - Tu Oficio',
+      html: `
         <h2>Verificación de correo</h2>
         <p>Tu código de verificación es:</p>
         <h1>${code}</h1>
-        <p>Este código expirará en 15 minutos.</p>
+        <p>Este código expirará en 3 minutos.</p>
         `,
     });
- }
+  }
 }
