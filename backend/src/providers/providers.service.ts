@@ -78,4 +78,85 @@ export class ProvidersService {
     },
   };
 }
+async findAll(filters: { trade?: string; location?: string }) {
+  const query = this.providerProfileRepository
+    .createQueryBuilder('profile')
+    .leftJoinAndSelect('profile.user', 'user')
+    .select([
+      'profile.id',
+      'profile.trade',
+      'profile.location',
+      'profile.description',
+      'profile.price',
+      'user.id',
+      'user.name',
+      'user.email',
+      'user.role',
+    ]);
+
+  if (filters.trade) {
+    query.andWhere('LOWER(profile.trade) LIKE LOWER(:trade)', {
+      trade: `%${filters.trade}%`,
+    });
+  }
+
+  if (filters.location) {
+    query.andWhere('LOWER(profile.location) LIKE LOWER(:location)', {
+      location: `%${filters.location}%`,
+    });
+  }
+
+  const providers = await query.getMany();
+
+  return providers.map((provider) => ({
+    id: provider.id,
+    trade: provider.trade,
+    location: provider.location,
+    description: provider.description,
+    price: provider.price,
+    user: {
+      id: provider.user.id,
+      name: provider.user.name,
+      email: provider.user.email,
+      role: provider.user.role,
+    },
+  }));
+}
+
+  async findOne(id: string) {
+    const provider = await this.providerProfileRepository
+      .createQueryBuilder('profile')
+      .leftJoinAndSelect('profile.user', 'user')
+      .select([
+        'profile.id',
+        'profile.trade',
+        'profile.location',
+        'profile.description',
+        'profile.price',
+        'user.id',
+        'user.name',
+        'user.email',
+        'user.role',
+      ])
+      .where('profile.id = :id', { id })
+      .getOne();
+
+    if (!provider) {
+      throw new NotFoundException('Proveedor no encontrado');
+    }
+
+    return {
+      id: provider.id,
+      trade: provider.trade,
+      location: provider.location,
+      description: provider.description,
+      price: provider.price,
+      user: {
+        id: provider.user.id,
+        name: provider.user.name,
+        email: provider.user.email,
+        role: provider.user.role,
+      },
+    };
+  }
 }
