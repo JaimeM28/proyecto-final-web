@@ -16,7 +16,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UserRole } from '../users/enums/user-role.enum';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { QueuesService } from '../queues/queues.service';
-
+import { randomInt } from 'crypto';
+import { Throttle } from '@nestjs/throttler'; 
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,9 +37,7 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const emailVerificationCode = Math.floor(
-      100000 + Math.random() * 900000,
-    ).toString();
+    const emailVerificationCode = randomInt(100000, 1000000).toString();
 
     const user = this.usersRepository.create({
       name: dto.name,
@@ -117,7 +116,7 @@ export class AuthService {
       };
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = randomInt(100000, 1000000).toString();
 
     user.resetCode = code;
     user.resetCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
