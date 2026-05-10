@@ -53,7 +53,7 @@ export class AuthService {
     await this.queuesService.addEmailVerificationJob(
       user.email,
       emailVerificationCode,
-  );
+    );
     return {
       message: 'Usuario registrado correctamente',
       user: {
@@ -187,43 +187,43 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyEmailDto) {
-  const user = await this.usersRepository.findOne({
-    where: { email: dto.email },
-  });
+    const user = await this.usersRepository.findOne({
+      where: { email: dto.email },
+    });
 
-  if (!user) {
-    throw new BadRequestException('Código inválido');
-  }
+    if (!user) {
+      throw new BadRequestException('Código inválido');
+    }
 
-  if (user.isEmailVerified) {
+    if (user.isEmailVerified) {
+      return {
+        message: 'El correo ya está verificado',
+      };
+    }
+
+    if (
+      !user.emailVerificationCode ||
+      !user.emailVerificationCodeExpiresAt
+    ) {
+      throw new BadRequestException('Código inválido');
+    }
+
+    const codeExpired =
+      user.emailVerificationCodeExpiresAt.getTime() < Date.now();
+
+    if (codeExpired || user.emailVerificationCode !== dto.code) {
+      throw new BadRequestException('Código inválido o expirado');
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationCode = null;
+    user.emailVerificationCodeExpiresAt = null;
+
+    await this.usersRepository.save(user);
+
     return {
-      message: 'El correo ya está verificado',
+      message: 'Correo verificado correctamente',
     };
-  }
-
-  if (
-    !user.emailVerificationCode ||
-    !user.emailVerificationCodeExpiresAt
-  ) {
-    throw new BadRequestException('Código inválido');
-  }
-
-  const codeExpired =
-    user.emailVerificationCodeExpiresAt.getTime() < Date.now();
-
-  if (codeExpired || user.emailVerificationCode !== dto.code) {
-    throw new BadRequestException('Código inválido o expirado');
-  }
-
-  user.isEmailVerified = true;
-  user.emailVerificationCode = null;
-  user.emailVerificationCodeExpiresAt = null;
-
-  await this.usersRepository.save(user);
-
-  return {
-    message: 'Correo verificado correctamente',
-  };
 }
 
 async resendVerificationEmail(email: string) {
@@ -234,7 +234,7 @@ async resendVerificationEmail(email: string) {
     };
 
     const user = await this.usersRepository.findOne({
-      where: { email },
+      where: {email},
     });
 
     if (!user || user.isEmailVerified) {
@@ -264,7 +264,7 @@ async resendVerificationEmail(email: string) {
     user.emailVerificationCode = code;
 
     user.emailVerificationCodeExpiresAt = new Date(
-      now + 15 * 60 * 1000,
+      now + 3 * 60 * 1000,
     );
 
     await this.usersRepository.save(user);
@@ -280,37 +280,37 @@ async resendVerificationEmail(email: string) {
     };
   }
 
-private async generateTokens(user: User) {
-  const payload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    isOnboardingCompleted: user.isOnboardingCompleted,
-    isEmailVerified: user.isEmailVerified,
-  };
+  private async generateTokens(user: User) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      isOnboardingCompleted: user.isOnboardingCompleted,
+      isEmailVerified: user.isEmailVerified,
+    };
 
-  const accessExpiresIn =
-    (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as SignOptions['expiresIn'];
+    const accessExpiresIn =
+      (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as SignOptions['expiresIn'];
 
-  const refreshExpiresIn =
-    (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
+    const refreshExpiresIn =
+      (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
 
-  const [accessToken, refreshToken] = await Promise.all([
-    this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: accessExpiresIn,
-    }),
-    this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: refreshExpiresIn,
-    }),
-  ]);
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: accessExpiresIn,
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: refreshExpiresIn,
+      }),
+    ]);
 
-  return {
-    accessToken,
-    refreshToken,
-  };
-}
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
 
   async refresh(refreshToken: string) {
     let payload: any;

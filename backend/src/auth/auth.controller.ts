@@ -9,6 +9,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { Throttle } from '@nestjs/throttler/dist/throttler.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResendVerificationEmailDto } from './dto/resend-verification-email.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -97,5 +98,17 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   logout(@Req() req) {
     return this.authService.logout(req.user.id);
+  }
+
+  @Post('resend-verification-email')
+  @ApiOperation({
+    summary: 'Reenviar código de verificación',
+  })
+  resendVerificationEmail(
+    @Body() dto: ResendVerificationEmailDto,
+  ) {
+    return this.authService.resendVerificationEmail(
+      dto.email,
+    );
   }
 }
