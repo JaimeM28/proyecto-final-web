@@ -33,7 +33,25 @@ export class AuthService {
     });
 
     if (userExists) {
-      throw new BadRequestException('El correo ya está registrado');
+      if (userExists.isEmailVerified) {
+        throw new BadRequestException('El correo ya está registrado');
+      }
+
+      const resendResponse = await this.resendVerificationEmail(dto.email);
+
+      return {
+        ...resendResponse,
+        message: 'El correo ya estaba registrado pero no verificado. Revisa tu correo para continuar.',
+        requiresEmailVerification: true,
+        user: {
+          id: userExists.id,
+          name: userExists.name,
+          email: userExists.email,
+          role: userExists.role,
+          isEmailVerified: userExists.isEmailVerified,
+          isOnboardingCompleted: userExists.isOnboardingCompleted,
+        },
+      };
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -49,18 +67,26 @@ export class AuthService {
       emailVerificationCode,
       emailVerificationCodeExpiresAt: new Date(Date.now() + 3 * 60 * 1000),
     });
-    await this.usersRepository.save(user);
+
+    const savedUser = await this.usersRepository.save(user);
+
     await this.queuesService.addEmailVerificationJob(
-      user.email,
+      savedUser.email,
       emailVerificationCode,
     );
+
     return {
-      message: 'Usuario registrado correctamente',
+      message: 'Usuario registrado correctamente. Revisa tu correo para verificar tu cuenta.',
+      requiresEmailVerification: true,
+      expiresInSeconds: 180,
+      codeAlreadySent: false,
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        id: savedUser.id,
+        name: savedUser.name,
+        email: savedUser.email,
+        role: savedUser.role,
+        isEmailVerified: savedUser.isEmailVerified,
+        isOnboardingCompleted: savedUser.isOnboardingCompleted,
       },
     };
   }
