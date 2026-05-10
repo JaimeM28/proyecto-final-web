@@ -47,7 +47,7 @@ export class AuthService {
       isOnboardingCompleted: false,
       isEmailVerified: false,
       emailVerificationCode,
-      emailVerificationCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      emailVerificationCodeExpiresAt: new Date(Date.now() + 3 * 60 * 1000),
     });
     await this.usersRepository.save(user);
     await this.queuesService.addEmailVerificationJob(
@@ -110,7 +110,7 @@ export class AuthService {
     const defaultResponse = {
       message:
         'Si el correo existe, se enviará un código de recuperación',
-      expiresInSeconds: 60,
+      expiresInSeconds: 180,
     };
 
     const user = await this.usersRepository.findOne({
@@ -144,7 +144,7 @@ export class AuthService {
     user.resetCode = code;
 
     user.resetCodeExpiresAt = new Date(
-      now + 1 * 60 * 1000,
+      now + 3 * 60 * 1000,
     );
 
     await this.usersRepository.save(user);
@@ -156,7 +156,7 @@ export class AuthService {
 
     return {
       ...defaultResponse,
-      expiresInSeconds: 60,
+      expiresInSeconds: 180,
     };
   }
 
@@ -225,6 +225,60 @@ export class AuthService {
     message: 'Correo verificado correctamente',
   };
 }
+
+async resendVerificationEmail(email: string) {
+    const defaultResponse = {
+      message:
+      'Si el correo existe, se enviará un nuevo código de verificación',
+      expiresInSeconds: 180,
+    };
+
+    const user = await this.usersRepository.findOne({
+      where: { email },
+    });
+
+    if (!user || user.isEmailVerified) {
+      return defaultResponse;
+    }
+
+    const now = Date.now();
+
+    const hasValidCode =
+      user.emailVerificationCode &&
+      user.emailVerificationCodeExpiresAt &&
+      user.emailVerificationCodeExpiresAt.getTime() > now;
+
+    if (hasValidCode) {
+      const remainingSeconds = Math.ceil(
+        (user.emailVerificationCodeExpiresAt!.getTime() - now) / 1000,
+      );
+
+      return {
+        ...defaultResponse,
+        expiresInSeconds: remainingSeconds,
+      };
+    }
+
+    const code = randomInt(100000, 1000000).toString();
+
+    user.emailVerificationCode = code;
+
+    user.emailVerificationCodeExpiresAt = new Date(
+      now + 15 * 60 * 1000,
+    );
+
+    await this.usersRepository.save(user);
+
+    await this.queuesService.addEmailVerificationJob(
+      user.email,
+      code,
+    );
+
+    return {
+      ...defaultResponse,
+      expiresInSeconds: 180,
+    };
+  }
 
 private async generateTokens(user: User) {
   const payload = {

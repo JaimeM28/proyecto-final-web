@@ -1,14 +1,6 @@
-// src/auth/auth.controller.ts
-
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -45,8 +37,7 @@ export class AuthController {
   @Post('login')
   @ApiOperation({
     summary: 'Iniciar sesión',
-    description:
-      'Autentica al usuario y retorna un accessToken JWT.',
+    description: 'Autentica al usuario y retorna un accessToken JWT.',
   })
   @ApiResponse({
     status: 200,
@@ -63,8 +54,7 @@ export class AuthController {
   @Post('forgot-password')
   @ApiOperation({
     summary: 'Recuperar contraseña',
-    description:
-      'Envía un código de recuperación al correo del usuario.',
+    description: 'Envía un código de recuperación al correo del usuario.',
   })
   @ApiResponse({
     status: 200,

@@ -1,6 +1,12 @@
 // src/clients/entities/client-profile.entity.ts
 
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('client_profiles')
@@ -14,5 +20,4 @@ export class ClientProfile {
 
   @Column({ type: 'varchar' })
   location: string;
-
 }
