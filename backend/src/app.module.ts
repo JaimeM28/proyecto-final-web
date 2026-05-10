@@ -5,6 +5,8 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProvidersModule } from './providers/providers.module';
 import { ClientsModule } from './clients/clients.module';
+import { MailModule } from './mail/mail.module';
+import { QueuesModule } from './queues/queues.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { ClientsModule } from './clients/clients.module';
     AuthModule,
     ProvidersModule,
     ClientsModule,
+    MailModule,
+    QueuesModule,
   ],
   controllers: [],
   providers: [],

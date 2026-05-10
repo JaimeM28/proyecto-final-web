@@ -29,12 +29,26 @@ services:
       DB_NAME: ${DB_NAME}
       NODE_ENV: ${NODE_ENV}
       JWT_SECRET: ${JWT_SECRET}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
     depends_on:
       - postgres_db
+      - redis
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
     command: yarn start:dev
 
+  redis:
+    image: redis:7-alpine
+    container_name: tu_oficio_redis
+    restart: always
+    ports:
+      - "6379:6379"
+  
 volumes:
   postgres_data:

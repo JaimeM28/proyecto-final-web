@@ -50,4 +50,22 @@ export class User {
     nullable: true,
   })
   resetCodeExpiresAt: Date | null;
+
+  @Column({ 
+    type: 'boolean', 
+    default: false
+  })
+  isEmailVerified: boolean;
+
+  @Column({ 
+    type: 'varchar',
+    nullable: true
+  })
+  emailVerificationCode: string | null;
+
+  @Column({
+     type: 'timestamp',
+     nullable: true
+    })
+  emailVerificationCodeExpiresAt: Date | null;
 }
