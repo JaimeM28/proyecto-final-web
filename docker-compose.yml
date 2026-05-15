@@ -36,5 +36,19 @@ services:
       - /usr/src/app/node_modules
     command: yarn start:dev
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: react_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
