@@ -20,6 +20,9 @@ import {
 import { ProvidersService } from './providers.service';
 import { ProviderOnboardingDto } from './dto/provider-onboarding.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @ApiTags('Providers')
 @ApiBearerAuth()
@@ -28,7 +31,8 @@ export class ProvidersController {
   constructor(private readonly providersService: ProvidersService) {}
 
   @Post('onboarding')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROVIDER)
   @ApiOperation({
     summary: 'Completar onboarding de proveedor',
   })
