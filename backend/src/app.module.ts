@@ -5,6 +5,11 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProvidersModule } from './providers/providers.module';
 import { ClientsModule } from './clients/clients.module';
+import { MailModule } from './mail/mail.module';
+import { QueuesModule } from './queues/queues.module';
+import { ThrottlerModule } from '@nestjs/throttler/dist/throttler.module';
+import { APP_GUARD } from '@nestjs/core/constants';
+import { ThrottlerGuard } from '@nestjs/throttler/dist/throttler.guard';
 
 @Module({
   imports: [
@@ -22,8 +27,21 @@ import { ClientsModule } from './clients/clients.module';
     AuthModule,
     ProvidersModule,
     ClientsModule,
+    MailModule,
+    QueuesModule,
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

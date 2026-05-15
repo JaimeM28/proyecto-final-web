@@ -7,6 +7,4 @@ export class ClientOnboardingDto {
   @ApiProperty({ example: 'Ciudad de México' })
   @IsNotEmpty()
   location: string;
-
-  
 }

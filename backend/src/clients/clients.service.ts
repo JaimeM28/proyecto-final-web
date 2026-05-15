@@ -22,63 +22,59 @@ export class ClientsService {
     private readonly usersRepository: Repository<User>,
   ) {}
 
- async completeOnboarding(userId: string, dto: ClientOnboardingDto) {
-  const user = await this.usersRepository.findOne({
-    where: { id: userId },
-  });
+  async completeOnboarding(userId: string, dto: ClientOnboardingDto) {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
 
-  if (!user) {
-    throw new NotFoundException('Usuario no encontrado');
-  }
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
 
-  if (user.role !== UserRole.CLIENT) {
-    throw new ForbiddenException(
-      'Solo clientes pueden completar este onboarding',
-    );
-  }
+    if (user.role !== UserRole.CLIENT) {
+      throw new ForbiddenException(
+        'Solo clientes pueden completar este onboarding',
+      );
+    }
 
-  const existingProfile = await this.clientProfileRepository.findOne({
-    where: {
-      user: {
-        id: userId,
+    const existingProfile = await this.clientProfileRepository.findOne({
+      where: {
+        user: {
+          id: userId,
+        },
       },
-    },
-  });
+    });
 
-  if (existingProfile) {
-    throw new BadRequestException(
-      'El onboarding ya fue completado',
-    );
+    if (existingProfile) {
+      throw new BadRequestException('El onboarding ya fue completado');
+    }
+
+    const profile = this.clientProfileRepository.create({
+      user,
+      location: dto.location,
+    });
+
+    const savedProfile = await this.clientProfileRepository.save(profile);
+
+    user.isOnboardingCompleted = true;
+
+    const updatedUser = await this.usersRepository.save(user);
+
+    return {
+      message: 'Onboarding de cliente completado',
+
+      profile: {
+        id: savedProfile.id,
+        location: savedProfile.location,
+      },
+
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        isOnboardingCompleted: updatedUser.isOnboardingCompleted,
+      },
+    };
   }
-
-  const profile = this.clientProfileRepository.create({
-    user,
-    location: dto.location,
-  
-  });
-
-  const savedProfile = await this.clientProfileRepository.save(profile);
-
-  user.isOnboardingCompleted = true;
-
-  const updatedUser = await this.usersRepository.save(user);
-
-  return {
-    message: 'Onboarding de cliente completado',
-
-    profile: {
-      id: savedProfile.id,
-      location: savedProfile.location,
-    },
-
-    user: {
-      id: updatedUser.id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      role: updatedUser.role,
-      isOnboardingCompleted:
-        updatedUser.isOnboardingCompleted,
-    },
-  };
-}
 }
