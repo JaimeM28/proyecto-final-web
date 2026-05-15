@@ -9,6 +9,9 @@ import {
 import { ClientsService } from './clients.service';
 import { ClientOnboardingDto } from './dto/client-onboarding.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @ApiTags('Clients')
 @ApiBearerAuth()
@@ -17,7 +20,8 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Post('onboarding')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CLIENT)
   @ApiOperation({
     summary: 'Completar onboarding de cliente',
   })
