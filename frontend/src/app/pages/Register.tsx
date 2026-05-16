@@ -5,17 +5,49 @@ import { Input } from '../components/Input';
 import { Label } from '../components/Label';
 import { Card } from '../components/Card';
 import { Briefcase } from 'lucide-react';
+import { signup } from '../lib/auth.service';
 
 export const Register = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
   const [userType, setUserType] = useState<'client' | 'provider'>(
     searchParams.get('type') === 'provider' ? 'provider' : 'client'
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/verify-email');
+
+    console.log('REGISTER SUBMIT DISPARADO');
+
+    try {
+      setLoading(true);
+
+      const response = await signup({
+        name,
+        email,
+        password,
+        role: userType,
+      });
+
+      localStorage.setItem('pendingVerificationEmail', email);
+      localStorage.setItem(
+        'verificationExpiresAt',
+        String(Date.now() + response.expiresInSeconds * 1000)
+      );
+
+      navigate('/verify-email');
+    } catch (error) {
+      console.error('Signup error:', error);
+      alert('No se pudo registrar el usuario');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,17 +68,37 @@ export const Register = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre completo</Label>
-              <Input id="name" placeholder="Juan Pérez" required />
+              <Input
+                id="name"
+                placeholder="Juan Pérez"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Correo electrónico</Label>
-              <Input id="email" type="email" placeholder="tu@email.com" required />
+              <Input
+                id="email"
+                type="email"
+                placeholder="tu@email.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
-              <Input id="password" type="password" placeholder="Mínimo 8 caracteres" required />
+              <Input
+                id="password"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
@@ -63,8 +115,11 @@ export const Register = () => {
                 >
                   <div className="text-2xl mb-1">👤</div>
                   <div className="font-medium">Cliente</div>
-                  <div className="text-xs text-muted-foreground">Busco servicios</div>
+                  <div className="text-xs text-muted-foreground">
+                    Busco servicios
+                  </div>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setUserType('provider')}
@@ -76,7 +131,9 @@ export const Register = () => {
                 >
                   <div className="text-2xl mb-1">🔧</div>
                   <div className="font-medium">Proveedor</div>
-                  <div className="text-xs text-muted-foreground">Ofrezco servicios</div>
+                  <div className="text-xs text-muted-foreground">
+                    Ofrezco servicios
+                  </div>
                 </button>
               </div>
             </div>
@@ -87,15 +144,23 @@ export const Register = () => {
               </p>
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Registrarse
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? 'Registrando...' : 'Registrarse'}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-primary hover:underline font-medium">
+              <Link
+                to="/login"
+                className="text-primary hover:underline font-medium"
+              >
                 Inicia sesión
               </Link>
             </p>

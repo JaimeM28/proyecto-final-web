@@ -3,19 +3,35 @@ import { useNavigate } from 'react-router';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Mail } from 'lucide-react';
+import {
+  verifyEmail,
+  resendVerificationEmail,
+} from '../lib/auth.service';
 
 export const VerifyEmail = () => {
   const navigate = useNavigate();
+
   const [code, setCode] = useState(['', '', '', '', '', '']);
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState(180);
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  const email = localStorage.getItem('pendingVerificationEmail');
+
   useEffect(() => {
+    if (!email) {
+      navigate('/register');
+      return;
+    }
+
     const interval = setInterval(() => {
       setTimer((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
+
     return () => clearInterval(interval);
-  }, []);
+  }, [email, navigate]);
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -29,21 +45,70 @@ export const VerifyEmail = () => {
     }
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulación: redirigir a login
-    navigate('/login');
+
+    const verificationCode = code.join('');
+
+    if (verificationCode.length !== 6) {
+      alert('Ingresa el código completo');
+      return;
+    }
+
+    if (!email) {
+      alert('Correo no encontrado');
+      navigate('/register');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await verifyEmail({
+        email,
+        code: verificationCode,
+      });
+
+      localStorage.removeItem('pendingVerificationEmail');
+      localStorage.removeItem('verificationExpiresAt');
+
+      alert('Correo verificado correctamente');
+      navigate('/login');
+    } catch (error) {
+      console.error('Verify email error:', error);
+      alert('Código inválido o expirado');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
-    setTimer(60);
-    setCode(['', '', '', '', '', '']);
+  const handleResend = async () => {
+    if (!email) return;
+
+    try {
+      setResending(true);
+
+      await resendVerificationEmail(email);
+
+      setTimer(180);
+      setCode(['', '', '', '', '', '']);
+
+      alert('Código reenviado');
+    } catch (error) {
+      console.error('Resend code error:', error);
+      alert('No se pudo reenviar el código');
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -57,8 +122,13 @@ export const VerifyEmail = () => {
           </div>
 
           <h2 className="text-center mb-2">Verifica tu correo</h2>
-          <p className="text-center text-muted-foreground mb-8">
-            Ingresa el código de 6 dígitos que enviamos a tu correo
+
+          <p className="text-center text-muted-foreground mb-2">
+            Ingresa el código de 6 dígitos enviado a:
+          </p>
+
+          <p className="text-center font-medium mb-8 break-all">
+            {email}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -66,7 +136,9 @@ export const VerifyEmail = () => {
               {code.map((digit, index) => (
                 <input
                   key={index}
-                  ref={(el) => (inputRefs.current[index] = el)}
+                  ref={(el) => {
+                    inputRefs.current[index] = el;
+                  }}
                   type="text"
                   maxLength={1}
                   value={digit}
@@ -80,27 +152,36 @@ export const VerifyEmail = () => {
             <div className="text-center">
               {timer > 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Reenviar código en <span className="font-semibold text-primary">{timer}s</span>
+                  Reenviar código en{' '}
+                  <span className="font-semibold text-primary">
+                    {timer}s
+                  </span>
                 </p>
               ) : (
                 <button
                   type="button"
                   onClick={handleResend}
+                  disabled={resending}
                   className="text-sm text-primary hover:underline font-medium"
                 >
-                  Reenviar código
+                  {resending ? 'Reenviando...' : 'Reenviar código'}
                 </button>
               )}
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Verificar
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? 'Verificando...' : 'Verificar'}
             </Button>
           </form>
 
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground text-center">
-              ¿No recibiste el código? Revisa tu carpeta de spam o correo no deseado
+              ¿No recibiste el código? Revisa spam o correo no deseado
             </p>
           </div>
         </div>
