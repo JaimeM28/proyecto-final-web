@@ -10,6 +10,7 @@ import { QueuesModule } from './queues/queues.module';
 import { ThrottlerModule } from '@nestjs/throttler/dist/throttler.module';
 import { APP_GUARD } from '@nestjs/core/constants';
 import { ThrottlerGuard } from '@nestjs/throttler/dist/throttler.guard';
+import { ServiceRequestsModule } from './service-requests/service-requests.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ThrottlerGuard } from '@nestjs/throttler/dist/throttler.guard';
         limit: 10,
       },
     ]),
+    ServiceRequestsModule,
   ],
   controllers: [],
   providers: [
