@@ -69,5 +69,29 @@ export const login = async (
   data: LoginRequest
 ): Promise<LoginResponse> => {
   const response = await api.post<LoginResponse>("/auth/login", data);
+  
+  localStorage.setItem('accessToken', response.data.accessToken);
+  localStorage.setItem('refreshToken', response.data.refreshToken);
+  localStorage.setItem('user', JSON.stringify(response.data.user));
+  return response.data;
+};
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+export const forgotPassword = async (data: ForgotPasswordRequest) => {
+  const response = await api.post('/auth/forgot-password', data);
+  return response.data;
+};
+
+export const resetPassword = async (data: ResetPasswordRequest) => {
+  const response = await api.post('/auth/reset-password', data);
   return response.data;
 };
