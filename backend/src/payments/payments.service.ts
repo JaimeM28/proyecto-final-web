@@ -125,7 +125,7 @@ export class PaymentsService {
           name: serviceRequest.client.name,
         },
         external_reference: savedPayment.id,
-        notification_url: `${process.env.BACKEND_URL}/payments/webhook`,
+        notification_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
         back_urls: {
           success: `${process.env.FRONTEND_URL}/payments/success`,
           failure: `${process.env.FRONTEND_URL}/payments/failure`,
