@@ -78,6 +78,7 @@ Una vez levantado el proyecto, abre:
 
 ```txt
 http://localhost:3000/api
+http://localhost:5173
 ```
 
 Ahí podrás visualizar y probar todos los endpoints desde Swagger.
