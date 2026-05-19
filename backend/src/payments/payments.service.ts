@@ -18,6 +18,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 
 import { ServiceRequest } from '../service-requests/entities/service-request.entity';
 import { ServiceRequestStatus } from '../service-requests/enums/service-request-status.enum';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class PaymentsService {
@@ -29,6 +30,8 @@ export class PaymentsService {
 
     @InjectRepository(ServiceRequest)
     private readonly serviceRequestRepository: Repository<ServiceRequest>,
+
+    private readonly appointmentsService: AppointmentsService,
   ) {
     this.mercadoPagoClient = new MercadoPagoConfig({
       accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
@@ -198,6 +201,9 @@ export class PaymentsService {
 
       await this.serviceRequestRepository.save(payment.serviceRequest);
       await this.paymentRepository.save(payment);
+       await this.appointmentsService.createFromServiceRequest(
+        payment.serviceRequest.id,
+      );
     }
 
     if (mpPayment.status === 'rejected') {
