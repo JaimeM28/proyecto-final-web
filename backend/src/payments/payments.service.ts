@@ -196,6 +196,11 @@ export class PaymentsService {
     console.log('Estado del pago en Mercado Pago:', mpPayment.status);
 
     if (mpPayment.status === 'approved') {
+      if (payment.status === PaymentStatus.PAID) {
+        return {
+          message: 'Pago ya procesado',
+        };
+     }
       payment.status = PaymentStatus.PAID;
       payment.serviceRequest.status = ServiceRequestStatus.PAID;
 
