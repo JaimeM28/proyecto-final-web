@@ -20,6 +20,7 @@ import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { RejectServiceRequestDto } from './dto/reject-service-request.dto';
 import { ServiceRequestStatus } from './enums/service-request-status.enum';
 import { QueuesService } from '../queues/queues.service';
+import { AvailabilityService } from '../availability/availability.service';
 
 @Injectable()
 export class ServiceRequestsService {
@@ -33,6 +34,7 @@ export class ServiceRequestsService {
     @InjectRepository(ProviderProfile)
     private readonly providerProfileRepository: Repository<ProviderProfile>,
     private readonly queuesService: QueuesService,
+    private readonly availabilityService: AvailabilityService,
   ) {}
 
   async create(clientId: string, dto: CreateServiceRequestDto) {
@@ -67,12 +69,26 @@ export class ServiceRequestsService {
       );
     }
 
+    const requestedDate = new Date(dto.requestedDate);
+
+    const hasConflict =
+      await this.availabilityService.hasProviderConflict(
+        provider.id,
+        requestedDate,
+      );
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'El proveedor ya tiene un servicio confirmado en ese horario',
+      );
+    }
+
     const serviceRequest = this.serviceRequestRepository.create({
       client,
       provider,
       title: dto.title,
       description: dto.description,
-      requestedDate: new Date(dto.requestedDate),
+      requestedDate,
       status: ServiceRequestStatus.PENDING,
       rejectionReason: null,
     });
@@ -178,6 +194,20 @@ export class ServiceRequestsService {
     if (request.status !== ServiceRequestStatus.PENDING) {
       throw new BadRequestException(
         'Solo puedes aceptar solicitudes pendientes',
+      );
+    }
+
+
+    const hasConflict =
+    await this.availabilityService.hasProviderConflict(
+      request.provider.id,
+      request.requestedDate,
+      request.id,
+    );
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'Ya tienes otro servicio confirmado en ese horario',
       );
     }
 
