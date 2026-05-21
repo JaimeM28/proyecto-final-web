@@ -71,6 +71,14 @@ export class ServiceRequestsService {
 
     const requestedDate = new Date(dto.requestedDate);
 
+    const minimumDate = new Date(Date.now() + 60 * 60 * 1000);
+
+    if (requestedDate < minimumDate) {
+      throw new BadRequestException(
+        'La solicitud debe realizarse con al menos 1 hora de anticipación',
+      );
+    }
+
     const hasConflict =
       await this.availabilityService.hasProviderConflict(
         provider.id,
