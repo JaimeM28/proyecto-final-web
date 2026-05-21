@@ -8,6 +8,7 @@ import { AppointmentsService } from './appointments.service';
 
 import { Appointment } from './entities/appointment.entity';
 import { ServiceRequest } from '../service-requests/entities/service-request.entity';
+import { AvailabilityModule } from '../availability/availability.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ServiceRequest } from '../service-requests/entities/service-request.ent
       Appointment,
       ServiceRequest,
     ]),
+    AvailabilityModule,
   ],
   controllers: [AppointmentsController],
   providers: [AppointmentsService],

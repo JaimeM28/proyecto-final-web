@@ -16,6 +16,7 @@ import { AppointmentStatus } from './enums/appointment-status.enum';
 import { ServiceRequest } from '../service-requests/entities/service-request.entity';
 import { ServiceRequestStatus } from '../service-requests/enums/service-request-status.enum';
 import { UserRole } from '../users/enums/user-role.enum';
+import { AvailabilityService } from '../availability/availability.service';
 
 @Injectable()
 export class AppointmentsService {
@@ -25,6 +26,7 @@ export class AppointmentsService {
 
     @InjectRepository(ServiceRequest)
     private readonly serviceRequestRepository: Repository<ServiceRequest>,
+    private readonly availabilityService: AvailabilityService,
   ) {}
 
   async createFromServiceRequest(serviceRequestId: string) {
@@ -60,21 +62,19 @@ export class AppointmentsService {
       return existingAppointment;
     }
 
-    const providerHasAppointment = await this.appointmentRepository.findOne({
-      where: {
-        provider: {
-          id: serviceRequest.provider.id,
-        },
-        date: serviceRequest.requestedDate,
-        status: AppointmentStatus.SCHEDULED,
-      },
-    });
+     const hasConflict =
+      await this.availabilityService.hasProviderConflict(
+        serviceRequest.provider.id,
+        serviceRequest.requestedDate,
+        serviceRequest.id,
+      );
 
-    if (providerHasAppointment) {
+    if (hasConflict) {
       throw new BadRequestException(
         'El proveedor ya tiene una cita programada en ese horario',
       );
     }
+
 
     const appointment = this.appointmentRepository.create({
       client: serviceRequest.client,
@@ -157,6 +157,7 @@ export class AppointmentsService {
     return this.toResponse(appointment);
   }
 
+  
   async cancel(userId: string, role: UserRole, id: string) {
     const appointment = await this.findOneWithRelations(id);
 
@@ -173,11 +174,16 @@ export class AppointmentsService {
     }
 
     appointment.status = AppointmentStatus.CANCELLED;
+    appointment.serviceRequest.status = ServiceRequestStatus.CANCELLED;
 
-    const savedAppointment = await this.appointmentRepository.save(appointment);
+    await this.serviceRequestRepository.save(appointment.serviceRequest);
+
+    const savedAppointment =
+      await this.appointmentRepository.save(appointment);
 
     return {
-      message: 'Cita cancelada correctamente',
+      message:
+        'Cita cancelada correctamente. El reembolso está siendo procesado.',
       appointment: this.toResponse(savedAppointment),
     };
   }

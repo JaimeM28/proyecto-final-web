@@ -216,6 +216,30 @@ export class ServiceRequestsService {
     const savedRequest =
       await this.serviceRequestRepository.save(request);
 
+  
+    await this.serviceRequestRepository
+      .createQueryBuilder()
+      .update(ServiceRequest)
+      .set({
+        status: ServiceRequestStatus.REJECTED,
+        rejectionReason:
+          'El horario ya fue reservado por otro cliente',
+      })
+      .where('providerId = :providerId', {
+        providerId: request.provider.id,
+      })
+      .andWhere('requestedDate = :requestedDate', {
+        requestedDate: request.requestedDate,
+      })
+      .andWhere('status = :status', {
+        status: ServiceRequestStatus.PENDING,
+      })
+      .andWhere('id != :id', {
+        id: request.id,
+      })
+      .execute();
+    
+
     await this.queuesService.addServiceRequestAcceptedJob({
         clientEmail: request.client.email,
         clientName: request.client.name,
