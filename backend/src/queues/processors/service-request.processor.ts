@@ -41,8 +41,12 @@ export class ServiceRequestProcessor extends WorkerHost {
       return;
     }
 
-    if (serviceRequest.status !== ServiceRequestStatus.PENDING) {
-      return;
+    const canExpire =
+    serviceRequest.status === ServiceRequestStatus.PENDING ||
+    serviceRequest.status === ServiceRequestStatus.ACCEPTED;
+
+    if (!canExpire) {
+        return;
     }
 
     serviceRequest.status = ServiceRequestStatus.CANCELLED;
