@@ -18,6 +18,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 
 import { ServiceRequest } from '../service-requests/entities/service-request.entity';
 import { ServiceRequestStatus } from '../service-requests/enums/service-request-status.enum';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Injectable()
 export class PaymentsService {
@@ -29,6 +30,8 @@ export class PaymentsService {
 
     @InjectRepository(ServiceRequest)
     private readonly serviceRequestRepository: Repository<ServiceRequest>,
+
+    private readonly appointmentsService: AppointmentsService,
   ) {
     this.mercadoPagoClient = new MercadoPagoConfig({
       accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
@@ -57,6 +60,21 @@ export class PaymentsService {
     if (serviceRequest.status !== ServiceRequestStatus.ACCEPTED) {
       throw new BadRequestException(
         'Solo puedes pagar solicitudes aceptadas',
+      );
+    }
+
+    const now = new Date();
+    const minimumPaymentTime = new Date(
+      serviceRequest.requestedDate.getTime() - 30 * 60 * 1000,
+    );
+
+    if (now >= minimumPaymentTime) {
+      serviceRequest.status = ServiceRequestStatus.CANCELLED;
+
+      await this.serviceRequestRepository.save(serviceRequest);
+
+      throw new BadRequestException(
+        'El tiempo para pagar esta solicitud expiró',
       );
     }
 
@@ -193,11 +211,19 @@ export class PaymentsService {
     console.log('Estado del pago en Mercado Pago:', mpPayment.status);
 
     if (mpPayment.status === 'approved') {
+      if (payment.status === PaymentStatus.PAID) {
+        return {
+          message: 'Pago ya procesado',
+        };
+     }
       payment.status = PaymentStatus.PAID;
       payment.serviceRequest.status = ServiceRequestStatus.PAID;
 
       await this.serviceRequestRepository.save(payment.serviceRequest);
       await this.paymentRepository.save(payment);
+       await this.appointmentsService.createFromServiceRequest(
+        payment.serviceRequest.id,
+      );
     }
 
     if (mpPayment.status === 'rejected') {

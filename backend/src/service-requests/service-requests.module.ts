@@ -9,6 +9,7 @@ import { ServiceRequest } from './entities/service-request.entity';
 import { User } from '../users/entities/user.entity';
 import { ProviderProfile } from '../providers/entities/provider-profile.entity';
 import { QueuesModule } from '../queues/queues.module';
+import { AvailabilityModule } from '../availability/availability.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { QueuesModule } from '../queues/queues.module';
       ProviderProfile,
     ]),
     QueuesModule,
+    AvailabilityModule,
   ],
   controllers: [ServiceRequestsController],
   providers: [ServiceRequestsService],

@@ -12,6 +12,8 @@ import { APP_GUARD } from '@nestjs/core/constants';
 import { ThrottlerGuard } from '@nestjs/throttler/dist/throttler.guard';
 import { ServiceRequestsModule } from './service-requests/service-requests.module';
 import { PaymentsModule } from './payments/payments.module';
+import { AppointmentsModule } from './appointments/appointments.module';
+import { AvailabilityModule } from './availability/availability.module';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { PaymentsModule } from './payments/payments.module';
     ]),
     ServiceRequestsModule,
     PaymentsModule,
+    AppointmentsModule,
+    AvailabilityModule,
   ],
   controllers: [],
   providers: [

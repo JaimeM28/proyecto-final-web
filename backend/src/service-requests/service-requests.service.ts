@@ -20,6 +20,7 @@ import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 import { RejectServiceRequestDto } from './dto/reject-service-request.dto';
 import { ServiceRequestStatus } from './enums/service-request-status.enum';
 import { QueuesService } from '../queues/queues.service';
+import { AvailabilityService } from '../availability/availability.service';
 
 @Injectable()
 export class ServiceRequestsService {
@@ -33,6 +34,7 @@ export class ServiceRequestsService {
     @InjectRepository(ProviderProfile)
     private readonly providerProfileRepository: Repository<ProviderProfile>,
     private readonly queuesService: QueuesService,
+    private readonly availabilityService: AvailabilityService,
   ) {}
 
   async create(clientId: string, dto: CreateServiceRequestDto) {
@@ -67,18 +69,45 @@ export class ServiceRequestsService {
       );
     }
 
+    const requestedDate = new Date(dto.requestedDate);
+
+    const minimumDate = new Date(Date.now() + 120 * 60 * 1000);
+
+    if (requestedDate < minimumDate) {
+      throw new BadRequestException(
+        'La solicitud debe realizarse con al menos 2 horas de anticipación',
+      );
+    }
+
+    const hasConflict =
+      await this.availabilityService.hasProviderConflict(
+        provider.id,
+        requestedDate,
+      );
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'El proveedor ya tiene un servicio confirmado en ese horario',
+      );
+    }
+
     const serviceRequest = this.serviceRequestRepository.create({
       client,
       provider,
       title: dto.title,
       description: dto.description,
-      requestedDate: new Date(dto.requestedDate),
+      requestedDate,
       status: ServiceRequestStatus.PENDING,
       rejectionReason: null,
     });
 
     const savedRequest =
       await this.serviceRequestRepository.save(serviceRequest);
+
+    await this.queuesService.addServiceRequestExpirationJob(
+      savedRequest.id,
+      savedRequest.requestedDate,
+    );
 
     await this.queuesService.addServiceRequestCreatedJob({
         providerEmail: provider.user.email,
@@ -181,10 +210,48 @@ export class ServiceRequestsService {
       );
     }
 
+
+    const hasConflict =
+    await this.availabilityService.hasProviderConflict(
+      request.provider.id,
+      request.requestedDate,
+      request.id,
+    );
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'Ya tienes otro servicio confirmado en ese horario',
+      );
+    }
+
     request.status = ServiceRequestStatus.ACCEPTED;
 
     const savedRequest =
       await this.serviceRequestRepository.save(request);
+
+  
+    await this.serviceRequestRepository
+      .createQueryBuilder()
+      .update(ServiceRequest)
+      .set({
+        status: ServiceRequestStatus.REJECTED,
+        rejectionReason:
+          'El horario ya fue reservado por otro cliente',
+      })
+      .where('providerId = :providerId', {
+        providerId: request.provider.id,
+      })
+      .andWhere('requestedDate = :requestedDate', {
+        requestedDate: request.requestedDate,
+      })
+      .andWhere('status = :status', {
+        status: ServiceRequestStatus.PENDING,
+      })
+      .andWhere('id != :id', {
+        id: request.id,
+      })
+      .execute();
+    
 
     await this.queuesService.addServiceRequestAcceptedJob({
         clientEmail: request.client.email,

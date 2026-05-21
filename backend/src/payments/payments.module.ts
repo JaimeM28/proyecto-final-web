@@ -7,6 +7,7 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Payment } from './entities/payment.entity';
 import { ServiceRequest } from '../service-requests/entities/service-request.entity';
+import { AppointmentsModule } from '../appointments/appointments.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ServiceRequest } from '../service-requests/entities/service-request.ent
       Payment,
       ServiceRequest,
     ]),
+     AppointmentsModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],
