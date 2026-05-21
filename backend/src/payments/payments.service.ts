@@ -63,6 +63,21 @@ export class PaymentsService {
       );
     }
 
+    const now = new Date();
+    const minimumPaymentTime = new Date(
+      serviceRequest.requestedDate.getTime() - 30 * 60 * 1000,
+    );
+
+    if (now >= minimumPaymentTime) {
+      serviceRequest.status = ServiceRequestStatus.CANCELLED;
+
+      await this.serviceRequestRepository.save(serviceRequest);
+
+      throw new BadRequestException(
+        'El tiempo para pagar esta solicitud expiró',
+      );
+    }
+
     const existingPayment = await this.paymentRepository.findOne({
       where: {
         serviceRequest: {
