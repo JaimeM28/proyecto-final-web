@@ -71,13 +71,13 @@ export class ServiceRequestsService {
 
     const requestedDate = new Date(dto.requestedDate);
 
-    const minimumDate = new Date(Date.now() + 60 * 60 * 1000);
+    // const minimumDate = new Date(Date.now() + 60 * 60 * 1000);
 
-    if (requestedDate < minimumDate) {
-      throw new BadRequestException(
-        'La solicitud debe realizarse con al menos 1 hora de anticipación',
-      );
-    }
+    // if (requestedDate < minimumDate) {
+    //   throw new BadRequestException(
+    //     'La solicitud debe realizarse con al menos 1 hora de anticipación',
+    //   );
+    // }
 
     const hasConflict =
       await this.availabilityService.hasProviderConflict(
@@ -103,6 +103,11 @@ export class ServiceRequestsService {
 
     const savedRequest =
       await this.serviceRequestRepository.save(serviceRequest);
+
+    await this.queuesService.addServiceRequestExpirationJob(
+      savedRequest.id,
+      savedRequest.requestedDate,
+    );
 
     await this.queuesService.addServiceRequestCreatedJob({
         providerEmail: provider.user.email,

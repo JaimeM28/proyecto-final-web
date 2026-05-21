@@ -6,7 +6,11 @@ import { BullModule } from '@nestjs/bullmq';
 import { QueuesService } from './queues.service';
 import { MailProcessor } from './processors/mail.processor';
 import { MailModule } from '../mail/mail.module';
-import { MAIL_QUEUE } from './queues.constants';
+import { MAIL_QUEUE, SERVICE_REQUEST_QUEUE } from './queues.constants';
+import { Payment } from '../payments/entities/payment.entity';
+import { ServiceRequest } from '../service-requests/entities/service-request.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServiceRequestProcessor } from './processors/service-request.processor';
 
 @Module({
   imports: [
@@ -16,12 +20,17 @@ import { MAIL_QUEUE } from './queues.constants';
         port: Number(process.env.REDIS_PORT) || 6379,
       },
     }),
-    BullModule.registerQueue({
-      name: MAIL_QUEUE,
-    }),
-    MailModule,
+    BullModule.registerQueue(
+      {name: MAIL_QUEUE},
+      {name: SERVICE_REQUEST_QUEUE},
+    ),
+    TypeOrmModule.forFeature([
+      ServiceRequest,
+      Payment,
+    ]),
+     MailModule,
   ],
-  providers: [QueuesService, MailProcessor],
+  providers: [QueuesService, MailProcessor, ServiceRequestProcessor],
   exports: [QueuesService],
 })
 export class QueuesModule {}

@@ -4,13 +4,21 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
-import { MAIL_QUEUE, MailJob } from './queues.constants';
+import { 
+  MAIL_QUEUE, 
+  MailJob, 
+  SERVICE_REQUEST_QUEUE, 
+  ServiceRequestJob 
+} from './queues.constants';
 
 @Injectable()
 export class QueuesService {
   constructor(
     @InjectQueue(MAIL_QUEUE)
     private readonly mailQueue: Queue,
+
+    @InjectQueue(SERVICE_REQUEST_QUEUE)
+  private readonly serviceRequestQueue: Queue,
   ) {}
 
   async addEmailVerificationJob(email: string, code: string) {
@@ -24,7 +32,7 @@ export class QueuesService {
           delay: 3000,
         },
         removeOnComplete: 100,
-        removeOnFail: 1000,
+        removeOnFail: 20,
       },
     );
   }
@@ -59,7 +67,7 @@ export class QueuesService {
         attempts: 3,
         backoff: { type: 'exponential', delay: 3000 },
         removeOnComplete: 100,
-        removeOnFail: 1000,
+        removeOnFail: 20,
       },
     );
   }
@@ -78,7 +86,7 @@ export class QueuesService {
         attempts: 3,
         backoff: { type: 'exponential', delay: 3000 },
         removeOnComplete: 100,
-        removeOnFail: 1000,
+        removeOnFail: 20,
       },
     );
   }
@@ -101,4 +109,32 @@ export class QueuesService {
       },
     );
   }
+
+
+  async addServiceRequestExpirationJob(
+    serviceRequestId: string,
+    requestedDate: Date,
+  ) {
+    const delay = requestedDate.getTime() - Date.now();
+
+    if (delay <= 0) {
+      return;
+    }
+
+    return this.serviceRequestQueue.add(
+      ServiceRequestJob.CANCEL_EXPIRED,
+      { serviceRequestId },
+      {
+        delay,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 3000,
+        },
+        removeOnComplete: true,
+        removeOnFail: 20,
+      },
+    );
+  }
+
 }
